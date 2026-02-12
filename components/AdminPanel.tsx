@@ -90,6 +90,7 @@ export const AdminPanel: React.FC = () => {
   const [results, setResults] = useState<QuizResult[]>([]);
   const [studentStats, setStudentStats] = useState<StorageService.StudentStats[]>([]);
   const [globalStats, setGlobalStats] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<StorageService.StudentStats | null>(null);
   const [viewingManual, setViewingManual] = useState<Manual | null>(null);
   const [certificateResult, setCertificateResult] = useState<QuizResult | null>(null);
@@ -98,11 +99,22 @@ export const AdminPanel: React.FC = () => {
   const [storeFilter, setStoreFilter] = useState<string>('Todas');
 
   useEffect(() => { loadData(); }, [activeTab]);
-  const loadData = () => {
-    setManuals(StorageService.getManuals());
-    setResults(StorageService.getResults());
-    setStudentStats(StorageService.getStudentsEvolution());
-    setGlobalStats(StorageService.getGlobalStats());
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      setManuals(StorageService.getManuals());
+      const [res, stats, global] = await Promise.all([
+        StorageService.getResults(),
+        StorageService.getStudentsEvolution(),
+        StorageService.getGlobalStats()
+      ]);
+      setResults(res);
+      setStudentStats(stats);
+      setGlobalStats(global);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,6 +139,14 @@ export const AdminPanel: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {loading && (
+        <div className="fixed inset-0 bg-white/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <RefreshCw className="h-10 w-10 text-brand-600 animate-spin" />
+            <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Sincronizando Firestore...</p>
+          </div>
+        </div>
+      )}
       <style>{`
         @page { size: A4 landscape; margin: 0; }
         @media print {
@@ -408,7 +428,7 @@ export const AdminPanel: React.FC = () => {
             <div className="p-8 border-b bg-gray-50 flex items-center justify-between">
               <h3 className="text-xl font-black uppercase tracking-tight">Últimas Evaluaciones</h3>
               <div className="flex items-center gap-4">
-                 <button onClick={() => StorageService.clearAllResults()} className="text-[10px] font-black text-red-500 hover:underline uppercase">Borrar Todo</button>
+                 <button onClick={() => { if(confirm("Acción no reversible. ¿Confirmar?")) { StorageService.clearAllResults(); loadData(); } }} className="text-[10px] font-black text-red-500 hover:underline uppercase">Borrar Todo</button>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -443,7 +463,7 @@ export const AdminPanel: React.FC = () => {
                      <p className="text-sm font-black truncate">{r.studentName}</p>
                      <p className="text-[10px] font-bold text-gray-400 uppercase">{r.manualName} • {r.score.toFixed(0)}%</p>
                    </div>
-                   <button onClick={() => setCertificateResult(r)} className="px-5 py-2.5 bg-black text-white rounded-xl text-[10px] font-black uppercase">Emitir Diploma</button>
+                   <button onClick={() => setCertificateResult(r)} className="px-5 py-2.5 bg-brand-600 text-white rounded-xl text-[10px] font-black uppercase">Emitir Diploma</button>
                  </div>
                ))}
              </div>

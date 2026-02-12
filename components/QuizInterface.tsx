@@ -3,7 +3,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Question, QuizConfig, QuizResult, QuestionType } from '../types';
 import * as GeminiService from '../services/geminiService';
 import * as StorageService from '../services/storageService';
-import { CheckCircle, ArrowRight, Timer, ShieldCheck, ChevronLeft, GitMerge, RotateCcw } from 'lucide-react';
+// Added missing 'Award' import
+import { CheckCircle, ArrowRight, Timer, ShieldCheck, ChevronLeft, GitMerge, RotateCcw, RefreshCw, Award } from 'lucide-react';
 
 const SESSION_KEY = 'campus_active_quiz_session';
 
@@ -14,6 +15,7 @@ export const QuizInterface: React.FC<{
   onExit: () => void;
 }> = ({ config, manualFiles, studentName, onExit }) => {
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [userAnswers, setUserAnswers] = useState<{[key: number]: string}>({});
@@ -66,27 +68,43 @@ export const QuizInterface: React.FC<{
     return () => clearInterval(timer);
   }, [loading, completed]);
 
-  const finishQuiz = () => {
-    setCompleted(true);
-    localStorage.removeItem(SESSION_KEY);
-    let correctCount = 0;
-    const details = questions.map(q => {
-      const isCorrect = userAnswers[q.id] === q.correctAnswer;
-      if (isCorrect) correctCount++;
-      return {
-        questionId: q.id, questionText: q.questionText, 
-        userAnswer: userAnswers[q.id] || "Sin responder", 
-        correctAnswer: q.correctAnswer, isCorrect, 
-        explanation: q.explanation, sourceManual: q.sourceManual
-      };
-    });
-    StorageService.saveResult({
-      id: Date.now().toString(), studentName, manualName: config.manualName,
-      category: config.category, score: (correctCount / questions.length) * 100,
-      totalQuestions: questions.length, correctAnswers: correctCount,
-      date: new Date().toISOString(), difficulty: config.difficulty,
-      isPractice: config.isPractice, details
-    });
+  const finishQuiz = async () => {
+    setSaving(true);
+    try {
+      localStorage.removeItem(SESSION_KEY);
+      let correctCount = 0;
+      const details = questions.map(q => {
+        const isCorrect = userAnswers[q.id] === q.correctAnswer;
+        if (isCorrect) correctCount++;
+        return {
+          questionId: q.id, questionText: q.questionText, 
+          userAnswer: userAnswers[q.id] || "Sin responder", 
+          correctAnswer: q.correctAnswer, isCorrect, 
+          explanation: q.explanation, sourceManual: q.sourceManual
+        };
+      });
+
+      await StorageService.saveResult({
+        id: Date.now().toString(), 
+        studentName, 
+        manualName: config.manualName,
+        category: config.category, 
+        score: (correctCount / questions.length) * 100,
+        totalQuestions: questions.length, 
+        correctAnswers: correctCount,
+        date: new Date().toISOString(), 
+        difficulty: config.difficulty,
+        isPractice: config.isPractice, 
+        details
+      });
+
+      setCompleted(true);
+    } catch (err) {
+      alert("Error al sincronizar con Firestore. Se ha guardado una copia local.");
+      setCompleted(true); // Permitimos salir aunque falle Firestore para no atrapar al usuario
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleMatchingSelection = (rightIndex: number) => {
@@ -103,15 +121,21 @@ export const QuizInterface: React.FC<{
     setUserAnswers(prev => ({ ...prev, [questions[currentQuestionIndex].id]: answerStr }));
   };
 
-  if (loading) return <div className="flex justify-center items-center min-h-[50vh]"><Loader /></div>;
+  if (loading || saving) return <div className="flex justify-center items-center min-h-[50vh]"><Loader text={saving ? "Sincronizando con Firestore..." : "Generando Examen IA..."} /></div>;
 
   if (completed) {
     const score = Math.round((questions.filter(q => userAnswers[q.id] === q.correctAnswer).length / questions.length) * 100);
     return (
-      <div className="max-w-2xl mx-auto p-12 bg-white rounded-4xl shadow-2xl text-center">
+      <div className="max-w-2xl mx-auto p-12 bg-white rounded-4xl shadow-2xl text-center animate-in zoom-in-95 duration-500">
+        <div className={`h-24 w-24 rounded-full flex items-center justify-center mx-auto mb-6 ${score >= 80 ? 'bg-green-100' : 'bg-red-100'}`}>
+           <Award className={`h-12 w-12 ${score >= 80 ? 'text-green-600' : 'text-red-600'}`} />
+        </div>
         <h2 className={`text-6xl font-black mb-4 ${score >= 80 ? 'text-green-600' : 'text-red-600'}`}>{score}%</h2>
-        <p className="text-xl font-bold mb-8">{score >= 80 ? '¡Certificación lograda!' : 'Refuerza los conceptos'}</p>
-        <button onClick={onExit} className="w-full p-5 bg-black text-white rounded-2xl font-black uppercase text-xs">Volver al Campus</button>
+        <p className="text-xl font-bold mb-8 text-gray-800">{score >= 80 ? '¡Certificación lograda!' : 'Refuerza los conceptos técnicos'}</p>
+        <div className="flex flex-col gap-4">
+          <button onClick={onExit} className="w-full p-5 bg-black text-white rounded-2xl font-black uppercase text-xs shadow-xl active:scale-95 transition-all">Volver al Campus</button>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tu progreso se ha sincronizado con la nube</p>
+        </div>
       </div>
     );
   }
@@ -223,7 +247,7 @@ export const QuizInterface: React.FC<{
           <button 
             onClick={() => currentQuestionIndex === questions.length - 1 ? finishQuiz() : setCurrentQuestionIndex(prev => prev + 1)}
             disabled={currentQuestion.type === 'matching' ? Object.keys(matchingPairs).length < currentQuestion.options.length : !isAnswered}
-            className="flex items-center gap-3 px-10 py-5 bg-black text-white rounded-2xl font-black uppercase text-xs disabled:opacity-20"
+            className="flex items-center gap-3 px-10 py-5 bg-black text-white rounded-2xl font-black uppercase text-xs disabled:opacity-20 shadow-xl transition-all"
           >
             {currentQuestionIndex === questions.length - 1 ? 'Finalizar' : 'Siguiente'}
             <ArrowRight className="h-4 w-4" />
@@ -234,9 +258,9 @@ export const QuizInterface: React.FC<{
   );
 };
 
-const Loader = () => (
+const Loader = ({ text = "Analizando Manuales Técnicos..." }: { text?: string }) => (
   <div className="flex flex-col items-center gap-4">
     <div className="h-12 w-12 border-4 border-brand-600 border-t-transparent rounded-full animate-spin"></div>
-    <p className="text-sm font-black uppercase tracking-widest">Analizando Manuales Técnicos...</p>
+    <p className="text-sm font-black uppercase tracking-widest">{text}</p>
   </div>
 );

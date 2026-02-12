@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Manual, QuizConfig, QuizResult, ManualCategory } from '../types';
 import * as StorageService from '../services/storageService';
-import { BookOpen, Search, Filter, Play, CheckCircle, Clock, Award, Target, Zap, ChevronRight, BarChart3, ShieldCheck, Dumbbell, Medal, Users, Store, ChevronDown, ChevronUp, FileText, ArrowRight } from 'lucide-react';
+import { BookOpen, Search, Filter, Play, CheckCircle, Clock, Award, Target, Zap, ChevronRight, BarChart3, ShieldCheck, Dumbbell, Medal, Users, Store, ChevronDown, ChevronUp, FileText, ArrowRight, RefreshCw } from 'lucide-react';
 
 const categories: ManualCategory[] = ['Atención al Cliente', 'Operativa', 'Producto', 'Visual'];
 
@@ -46,11 +46,21 @@ interface StudentPanelProps {
 export const StudentPanel: React.FC<StudentPanelProps> = ({ onStartQuiz, studentName }) => {
   const [manuals, setManuals] = useState<Manual[]>([]);
   const [history, setHistory] = useState<QuizResult[]>([]);
+  const [loading, setLoading] = useState(true);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   useEffect(() => {
-    setManuals(StorageService.getManuals());
-    setHistory(StorageService.getResults().filter(r => r.studentName === studentName).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+    const loadStudentData = async () => {
+      setLoading(true);
+      try {
+        setManuals(StorageService.getManuals());
+        const results = await StorageService.getStudentResults(studentName);
+        setHistory(results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStudentData();
   }, [studentName]);
 
   const radarData = useMemo(() => {
@@ -100,6 +110,15 @@ export const StudentPanel: React.FC<StudentPanelProps> = ({ onStartQuiz, student
       isPractice
     }, validManuals.map(m => ({ data: m.fileData!, mimeType: m.mimeType || 'text/plain' })));
   };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
+        <RefreshCw className="h-10 w-10 text-brand-600 animate-spin" />
+        <p className="text-xs font-black uppercase tracking-widest text-gray-500">Recuperando tu progreso de Firestore...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-10 animate-in fade-in duration-500">
