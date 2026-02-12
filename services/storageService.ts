@@ -75,6 +75,26 @@ export const saveResult = async (result: QuizResult): Promise<void> => {
   }
 };
 
+export const updateCertificateName = async (studentName: string, resultId: string, certificateName: string): Promise<void> => {
+  const userDocRef = doc(db, "users", studentName);
+  try {
+    const userSnap = await getDoc(userDocRef);
+    if (userSnap.exists()) {
+      const results = userSnap.data().results || [];
+      const updatedResults = results.map((r: any) => {
+        if (r.id === resultId) {
+          return { ...r, certificateName };
+        }
+        return r;
+      });
+      await updateDoc(userDocRef, { results: updatedResults });
+    }
+  } catch (error) {
+    console.error("Error al actualizar nombre del certificado:", error);
+    throw error;
+  }
+};
+
 export const deleteResult = async (studentName: string, resultId: string): Promise<void> => {
   const userDocRef = doc(db, "users", studentName);
   try {

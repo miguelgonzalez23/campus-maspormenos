@@ -47,6 +47,7 @@ export interface QuizConfig {
 export interface QuizResult {
   id: string;
   studentName: string;
+  certificateName?: string; // Nombre real para el diploma
   manualName: string;
   category?: ManualCategory | 'Global';
   score: number;
