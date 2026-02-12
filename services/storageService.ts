@@ -12,37 +12,37 @@ import {
   increment 
 } from "firebase/firestore";
 
-// Incrementamos la versión para forzar el reseteo de la lista de manuales y ver los 8 de Operativa
-const MANUALS_KEY = 'campus_manuals_v6'; 
+// Versión v7 para asegurar que todos los clientes vean la nueva lista de 14 manuales maestros
+const MANUALS_KEY = 'campus_manuals_v7'; 
 const PASSWORD_KEY = 'campus_trainer_password';
 
 const encodeText = (str: string): string => {
   try { return window.btoa(unescape(encodeURIComponent(str))); } catch (e) { return ""; }
 };
 
-// --- MANUALES INICIALES: BLOQUE OPERATIVA AMPLIADO A 8 DOCUMENTOS ---
+// --- BIBLIOTECA DE MANUALES MAESTROS MASPORMENOS ---
 const INITIAL_MANUALS: Manual[] = [
-  // Atención al Cliente
-  { id: 'm_atc_01', name: 'Cuaderno de Ruta del Asesor', uploadDate: '2025-02-27', category: 'Atención al Cliente', fileData: encodeText("Contenido del Cuaderno de Ruta..."), mimeType: 'text/plain' },
-  { id: 'm_atc_02', name: 'Protocolo de Bienvenida y Despedida', uploadDate: '2025-02-27', category: 'Atención al Cliente', fileData: encodeText("Contenido Protocolo..."), mimeType: 'text/plain' },
+  // ATENCIÓN AL CLIENTE
+  { id: 'm_atc_01', name: 'Cuaderno de ruta del vendedor de montaña', uploadDate: '2025-02-27', category: 'Atención al Cliente', fileData: encodeText("Manual de Atención al Cliente: Protocolos de bienvenida, despedida y asesoramiento técnico en montaña."), mimeType: 'text/plain' },
+  { id: 'm_atc_02', name: 'Info formación vendedor', uploadDate: '2025-02-27', category: 'Atención al Cliente', fileData: encodeText("Resumen clave de formación para vendedores: habilidades de comunicación y actitud comercial."), mimeType: 'text/plain' },
   
-  // Operativa (8 MANUALES SOLICITADOS)
-  { id: 'm_ope_00', name: '1. Manual Básico TPV FrontRetail', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Manual: TPV Básico..."), mimeType: 'text/plain' },
-  { id: 'm_ope_01', name: '2. Gestión de Devoluciones y Vales', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Contenido Devoluciones..."), mimeType: 'text/plain' },
-  { id: 'm_ope_02', name: '3. Uso de PDA: Recepción de Mercancía', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Contenido PDA..."), mimeType: 'text/plain' },
-  { id: 'm_ope_03', name: '4. Cierre de Caja y Arqueo Diario', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Contenido Cierre..."), mimeType: 'text/plain' },
-  { id: 'm_ope_04', name: '5. Protocolo de Apertura de Tienda', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Contenido Apertura..."), mimeType: 'text/plain' },
-  { id: 'm_ope_05', name: '6. Gestión de Stock y Pedidos Especiales', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Contenido Stock..."), mimeType: 'text/plain' },
-  { id: 'm_ope_06', name: '7. Inventario y Auditoría de Tienda', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Contenido Inventario..."), mimeType: 'text/plain' },
-  { id: 'm_ope_07', name: '8. Procedimientos de Seguridad y Alarmas', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Contenido Seguridad..."), mimeType: 'text/plain' },
+  // OPERATIVA (8 MANUALES)
+  { id: 'm_ope_01', name: 'Cierre de caja', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Procedimiento oficial de cierre de caja TPV, arqueo diario y gestión de efectivo."), mimeType: 'text/plain' },
+  { id: 'm_ope_02', name: 'Compras de personal', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Condiciones y límites de compra para el personal de tienda: descuentos y normativa interna."), mimeType: 'text/plain' },
+  { id: 'm_ope_03', name: 'Manual envío facturas', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Guía para la creación y envío de facturas a clientes desde el sistema FrontRetail."), mimeType: 'text/plain' },
+  { id: 'm_ope_04', name: 'Manual procedimientos pda', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Manual de uso de la PDA: pedidos web, roturas y gestión de stock en tiempo real."), mimeType: 'text/plain' },
+  { id: 'm_ope_05', name: 'Nuevo procedimiento postventas', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Protocolo de postventa: gestión de taras, devoluciones y garantías de marcas técnicas."), mimeType: 'text/plain' },
+  { id: 'm_ope_06', name: 'Procedimiento gestión de inventarios en pda', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Guía paso a paso para realizar inventarios parciales y totales utilizando la PDA."), mimeType: 'text/plain' },
+  { id: 'm_ope_07', name: 'Recepción de mercancía', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Protocolo de recepción de mercancía en tienda: bultos, albaranes AVI y registro en PDA."), mimeType: 'text/plain' },
+  { id: 'm_ope_08', name: 'Manual tpv', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Guía completa de FrontRetail: ventas, devoluciones, vales y fidelización de clientes."), mimeType: 'text/plain' },
   
-  // Producto
-  { id: 'm_prod_01', name: 'Tecnología Textil y Calzado 2023', uploadDate: '2025-02-27', category: 'Producto', fileData: encodeText("Manual: Tecnología..."), mimeType: 'text/plain' },
-  { id: 'm_prod_02', name: 'Guía de Mantenimiento Gore-Tex', uploadDate: '2025-02-27', category: 'Producto', fileData: encodeText("Contenido GoreTex..."), mimeType: 'text/plain' },
+  // PRODUCTO
+  { id: 'm_prod_01', name: 'Manual de formación textil calzado', uploadDate: '2025-02-27', category: 'Producto', fileData: encodeText("Formación técnica: membranas Gore-Tex, impermeabilidad, transpirabilidad y tipos de calzado."), mimeType: 'text/plain' },
+  { id: 'm_prod_02', name: 'Manual de material imprescindible de escalada', uploadDate: '2025-02-27', category: 'Producto', fileData: encodeText("Seguridad en escalada: cuerdas, arneses, mosquetones, aseguradores y mantenimiento."), mimeType: 'text/plain' },
   
-  // Visual
-  { id: 'm_vis_01', name: 'Estándares Visual Merchandising', uploadDate: '2025-02-27', category: 'Visual', fileData: encodeText("Manual: Visual..."), mimeType: 'text/plain' },
-  { id: 'm_vis_02', name: 'Colocación de Escaparates Temporada', uploadDate: '2025-02-27', category: 'Visual', fileData: encodeText("Contenido Escaparates..."), mimeType: 'text/plain' },
+  // VISUAL
+  { id: 'm_vis_01', name: 'VM22', uploadDate: '2025-02-27', category: 'Visual', fileData: encodeText("Estándares de Visual Merchandising: planogramas, exposición por género y precios."), mimeType: 'text/plain' },
+  { id: 'm_vis_02', name: 'Info VM', uploadDate: '2025-02-27', category: 'Visual', fileData: encodeText("Guía rápida de Visual: alarmado de prendas, iluminación de producto y uso de perchas."), mimeType: 'text/plain' },
 ];
 
 export const getManuals = (): Manual[] => {
