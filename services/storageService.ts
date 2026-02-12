@@ -63,13 +63,23 @@ export const deleteManual = (id: string): void => {
 
 export const saveResult = async (result: QuizResult): Promise<void> => {
   const userDocRef = doc(db, "users", result.studentName);
+  const statsDocRef = doc(db, "campus_stats", "general");
+  
   try {
     const userSnap = await getDoc(userDocRef);
     const existingResults = userSnap.exists() ? (userSnap.data().results || []) : [];
+    
+    // Guardar resultado del alumno
     await setDoc(userDocRef, { 
       results: [...existingResults, result],
       updatedAt: new Date().toISOString()
     }, { merge: true });
+
+    // Incrementar contador global de tests
+    await setDoc(statsDocRef, { 
+      testsRealizados: increment(1)
+    }, { merge: true });
+
   } catch (error) {
     console.error("Error al guardar:", error);
   }
@@ -97,12 +107,18 @@ export const updateCertificateName = async (studentName: string, resultId: strin
 
 export const deleteResult = async (studentName: string, resultId: string): Promise<void> => {
   const userDocRef = doc(db, "users", studentName);
+  const statsDocRef = doc(db, "campus_stats", "general");
   try {
     const userSnap = await getDoc(userDocRef);
     if (userSnap.exists()) {
       const results = userSnap.data().results || [];
       const updatedResults = results.filter((r: any) => r.id !== resultId);
       await updateDoc(userDocRef, { results: updatedResults });
+      
+      // Decrementar contador global si se borra un test
+      await setDoc(statsDocRef, { 
+        testsRealizados: increment(-1)
+      }, { merge: true });
     }
   } catch (error) {
     console.error("Error al borrar resultado:", error);
@@ -112,8 +128,20 @@ export const deleteResult = async (studentName: string, resultId: string): Promi
 
 export const clearStudentHistory = async (studentName: string): Promise<void> => {
   const userDocRef = doc(db, "users", studentName);
+  const statsDocRef = doc(db, "campus_stats", "general");
   try {
-    await updateDoc(userDocRef, { results: [] });
+    const userSnap = await getDoc(userDocRef);
+    if (userSnap.exists()) {
+      const resultsCount = (userSnap.data().results || []).length;
+      await updateDoc(userDocRef, { results: [] });
+      
+      // Ajustar contador global
+      if (resultsCount > 0) {
+        await setDoc(statsDocRef, { 
+          testsRealizados: increment(-resultsCount)
+        }, { merge: true });
+      }
+    }
   } catch (error) {
     console.error("Error al limpiar historial:", error);
     throw error;
@@ -122,8 +150,20 @@ export const clearStudentHistory = async (studentName: string): Promise<void> =>
 
 export const deleteStudent = async (studentName: string): Promise<void> => {
   const userDocRef = doc(db, "users", studentName);
+  const statsDocRef = doc(db, "campus_stats", "general");
   try {
-    await deleteDoc(userDocRef);
+    const userSnap = await getDoc(userDocRef);
+    if (userSnap.exists()) {
+      const resultsCount = (userSnap.data().results || []).length;
+      await deleteDoc(userDocRef);
+      
+      // Ajustar contador global
+      if (resultsCount > 0) {
+        await setDoc(statsDocRef, { 
+          testsRealizados: increment(-resultsCount)
+        }, { merge: true });
+      }
+    }
   } catch (error) {
     console.error("Error al eliminar alumno:", error);
     throw error;
