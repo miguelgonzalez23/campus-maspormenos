@@ -6,13 +6,12 @@ import {
   getDoc, 
   setDoc, 
   updateDoc, 
-  arrayUnion, 
+  deleteDoc,
   collection, 
   getDocs, 
   increment 
 } from "firebase/firestore";
 
-// Versión v7 para asegurar que todos los clientes vean la nueva lista de 14 manuales maestros
 const MANUALS_KEY = 'campus_manuals_v7'; 
 const PASSWORD_KEY = 'campus_trainer_password';
 
@@ -20,13 +19,9 @@ const encodeText = (str: string): string => {
   try { return window.btoa(unescape(encodeURIComponent(str))); } catch (e) { return ""; }
 };
 
-// --- BIBLIOTECA DE MANUALES MAESTROS MASPORMENOS ---
 const INITIAL_MANUALS: Manual[] = [
-  // ATENCIÓN AL CLIENTE
   { id: 'm_atc_01', name: 'Cuaderno de ruta del vendedor de montaña', uploadDate: '2025-02-27', category: 'Atención al Cliente', fileData: encodeText("Manual de Atención al Cliente: Protocolos de bienvenida, despedida y asesoramiento técnico en montaña."), mimeType: 'text/plain' },
   { id: 'm_atc_02', name: 'Info formación vendedor', uploadDate: '2025-02-27', category: 'Atención al Cliente', fileData: encodeText("Resumen clave de formación para vendedores: habilidades de comunicación y actitud comercial."), mimeType: 'text/plain' },
-  
-  // OPERATIVA (8 MANUALES)
   { id: 'm_ope_01', name: 'Cierre de caja', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Procedimiento oficial de cierre de caja TPV, arqueo diario y gestión de efectivo."), mimeType: 'text/plain' },
   { id: 'm_ope_02', name: 'Compras de personal', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Condiciones y límites de compra para el personal de tienda: descuentos y normativa interna."), mimeType: 'text/plain' },
   { id: 'm_ope_03', name: 'Manual envío facturas', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Guía para la creación y envío de facturas a clientes desde el sistema FrontRetail."), mimeType: 'text/plain' },
@@ -35,12 +30,8 @@ const INITIAL_MANUALS: Manual[] = [
   { id: 'm_ope_06', name: 'Procedimiento gestión de inventarios en pda', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Guía paso a paso para realizar inventarios parciales y totales utilizando la PDA."), mimeType: 'text/plain' },
   { id: 'm_ope_07', name: 'Recepción de mercancía', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Protocolo de recepción de mercancía en tienda: bultos, albaranes AVI y registro en PDA."), mimeType: 'text/plain' },
   { id: 'm_ope_08', name: 'Manual tpv', uploadDate: '2025-02-27', category: 'Operativa', fileData: encodeText("Guía completa de FrontRetail: ventas, devoluciones, vales y fidelización de clientes."), mimeType: 'text/plain' },
-  
-  // PRODUCTO
   { id: 'm_prod_01', name: 'Manual de formación textil calzado', uploadDate: '2025-02-27', category: 'Producto', fileData: encodeText("Formación técnica: membranas Gore-Tex, impermeabilidad, transpirabilidad y tipos de calzado."), mimeType: 'text/plain' },
   { id: 'm_prod_02', name: 'Manual de material imprescindible de escalada', uploadDate: '2025-02-27', category: 'Producto', fileData: encodeText("Seguridad en escalada: cuerdas, arneses, mosquetones, aseguradores y mantenimiento."), mimeType: 'text/plain' },
-  
-  // VISUAL
   { id: 'm_vis_01', name: 'VM22', uploadDate: '2025-02-27', category: 'Visual', fileData: encodeText("Estándares de Visual Merchandising: planogramas, exposición por género y precios."), mimeType: 'text/plain' },
   { id: 'm_vis_02', name: 'Info VM', uploadDate: '2025-02-27', category: 'Visual', fileData: encodeText("Guía rápida de Visual: alarmado de prendas, iluminación de producto y uso de perchas."), mimeType: 'text/plain' },
 ];
@@ -72,20 +63,49 @@ export const deleteManual = (id: string): void => {
 
 export const saveResult = async (result: QuizResult): Promise<void> => {
   const userDocRef = doc(db, "users", result.studentName);
-  const statsDocRef = doc(db, "campus_stats", "general");
+  try {
+    const userSnap = await getDoc(userDocRef);
+    const existingResults = userSnap.exists() ? (userSnap.data().results || []) : [];
+    await setDoc(userDocRef, { 
+      results: [...existingResults, result],
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch (error) {
+    console.error("Error al guardar:", error);
+  }
+};
 
+export const deleteResult = async (studentName: string, resultId: string): Promise<void> => {
+  const userDocRef = doc(db, "users", studentName);
   try {
     const userSnap = await getDoc(userDocRef);
     if (userSnap.exists()) {
-      await updateDoc(userDocRef, { results: arrayUnion(result) });
-    } else {
-      await setDoc(userDocRef, { results: [result], createdAt: new Date().toISOString() });
+      const results = userSnap.data().results || [];
+      const updatedResults = results.filter((r: any) => r.id !== resultId);
+      await updateDoc(userDocRef, { results: updatedResults });
     }
-    await updateDoc(statsDocRef, { testsRealizados: increment(1) }).catch(() => {
-      setDoc(statsDocRef, { testsRealizados: 1 }, { merge: true });
-    });
   } catch (error) {
-    console.error("Error al guardar resultado:", error);
+    console.error("Error al borrar resultado:", error);
+    throw error;
+  }
+};
+
+export const clearStudentHistory = async (studentName: string): Promise<void> => {
+  const userDocRef = doc(db, "users", studentName);
+  try {
+    await updateDoc(userDocRef, { results: [] });
+  } catch (error) {
+    console.error("Error al limpiar historial:", error);
+    throw error;
+  }
+};
+
+export const deleteStudent = async (studentName: string): Promise<void> => {
+  const userDocRef = doc(db, "users", studentName);
+  try {
+    await deleteDoc(userDocRef);
+  } catch (error) {
+    console.error("Error al eliminar alumno:", error);
     throw error;
   }
 };
@@ -147,7 +167,7 @@ export const getStudentsEvolution = async (): Promise<StudentStats[]> => {
     return { 
       name, averageScore: avgScore, totalTests: sorted.length, 
       passedCount: sorted.filter(r => r.score >= 80).length, 
-      lastTestDate: sorted[sorted.length - 1].date, 
+      lastTestDate: sorted[sorted.length - 1]?.date || '', 
       improvement: trend, history: [...sorted].reverse() 
     };
   }).sort((a, b) => b.averageScore - a.averageScore);
@@ -162,6 +182,5 @@ export const getGlobalStats = async () => {
   return { avgScore, totalTests: results.length, passRate: (passed / results.length) * 100 };
 };
 
-export const clearAllResults = async (): Promise<void> => { console.warn("Función no implementada."); };
 export const getTrainerPassword = (): string => localStorage.getItem(PASSWORD_KEY) || '123456';
 export const setTrainerPassword = (password: string): void => localStorage.setItem(PASSWORD_KEY, password);
