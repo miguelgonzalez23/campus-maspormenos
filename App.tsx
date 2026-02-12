@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import { AdminPanel } from './components/AdminPanel';
 import { StudentPanel } from './components/StudentPanel';
@@ -7,12 +7,54 @@ import { QuizInterface } from './components/QuizInterface';
 import { Chatbot } from './components/Chatbot';
 import { UserRole, AppState, QuizConfig } from './types';
 import * as StorageService from './services/storageService';
-import { Users, UserCog, Store, User, ArrowLeft, Lock, Hash } from 'lucide-react';
+import { Users, UserCog, Store, User, ArrowLeft, Lock, Hash, Activity, GraduationCap, BarChart3 } from 'lucide-react';
+import { db } from './firebaseConfig';
+import { doc, onSnapshot } from "firebase/firestore";
 
 const STORES_LIST = [
   "Vilafranca", "Haro", "Vitoria", "Tolosa", "Denim", "Collado", 
   "Dantxarinea", "Zarautz", "Oiarzaum", "Mora", "Natural", "Getafe", "Pamplona"
 ];
+
+const CampusStats: React.FC = () => {
+  const [stats, setStats] = useState({ testsRealizados: 0, usuariosOnline: 0 });
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, "campus_stats", "general"), (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setStats({
+          testsRealizados: data.testsRealizados || 0,
+          usuariosOnline: data.usuariosOnline || 0
+        });
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  return (
+    <div className="flex gap-4 mt-8 animate-in fade-in slide-in-from-bottom-2 duration-700">
+      <div className="bg-white px-6 py-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+        <div className="bg-brand-50 p-2 rounded-lg">
+          <GraduationCap className="h-4 w-4 text-brand-600" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Tests Realizados</p>
+          <p className="text-lg font-black text-gray-900">{stats.testsRealizados.toLocaleString()}</p>
+        </div>
+      </div>
+      <div className="bg-white px-6 py-3 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+        <div className="bg-green-50 p-2 rounded-lg">
+          <Activity className="h-4 w-4 text-green-600 animate-pulse" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Usuarios en Línea</p>
+          <p className="text-lg font-black text-gray-900">{stats.usuariosOnline}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [state, setState] = useState<AppState>({
@@ -46,7 +88,7 @@ const App: React.FC = () => {
   };
 
   const handleDniInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value.replace(/\D/g, ''); // Solo números
+    const val = e.target.value.replace(/\D/g, ''); 
     if (val.length <= 4) {
       setStudentNameInput(val);
     }
@@ -199,10 +241,13 @@ const App: React.FC = () => {
   const renderLogin = () => (
     <>
       <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
-        <div className="text-center mb-16 animate-in fade-in slide-in-from-top-4 duration-1000">
+        <div className="text-center mb-16 animate-in fade-in slide-in-from-top-4 duration-1000 flex flex-col items-center">
           <h1 className="text-5xl font-black text-gray-900 mb-6 tracking-tight leading-none">Bienvenido al <span className="text-brand-600">Campus</span></h1>
           <p className="text-lg text-gray-500 max-w-2xl mx-auto font-medium">Plataforma de gestión del conocimiento y evaluación continua para el equipo de Maspormenos.</p>
+          
+          <CampusStats />
         </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl">
           <button onClick={() => setState(prev => ({ ...prev, currentView: 'STUDENT_LOGIN' }))} className="group flex flex-col items-center p-10 bg-white rounded-4xl shadow-sm border border-gray-100 hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-2 text-center">
             <div className="p-6 bg-brand-50 rounded-3xl mb-8 group-hover:bg-brand-600 group-hover:scale-110 transition-all duration-500"><Users className="h-10 w-10 text-brand-600 group-hover:text-white" /></div>
